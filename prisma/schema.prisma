@@ -1,0 +1,512 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// BETTER AUTH (auto-generated models — do not modify manually)
+// Run: npx @better-auth/cli generate
+// ============================================================
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  userPlants    UserPlant[]
+  rooms         Room[]
+  notifPrefs    NotificationPrefs?
+  pushSubs      PushSubscription[]
+  achievements  UserAchievement[]
+  friendRequestsSent     Friendship[] @relation("friendRequestsSent")
+  friendRequestsReceived Friendship[] @relation("friendRequestsReceived")
+  shareCollection   Boolean @default(true)
+  shareAchievements Boolean @default(true)
+  shareWishlist     Boolean @default(true)
+
+  wishlistItems        WishlistItem[]
+  wishlistReservations WishlistItem[] @relation("wishlistReservations")
+  smartHome            SmartHomeConnection?
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id
+  userId            String
+  accountId         String
+  providerId        String
+  accessToken       String?
+  refreshToken      String?
+  accessTokenExpiresAt DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope             String?
+  idToken           String?
+  password          String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id
+  userId       String
+  token        String   @unique
+  expiresAt    DateTime
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verifications")
+}
+
+// ============================================================
+// PLANT SPECIES (reference/catalog data)
+// ============================================================
+
+model PlantSpecies {
+  id              String  @id @default(cuid())
+  scientificName  String  @unique
+  commonNameRu    String
+  commonNameEn    String?
+  family          String?
+  description     String?
+  imageUrl        String?
+  thumbnailUrl    String?
+
+  waterNeed       Int     @default(3)
+  lightNeed       Int     @default(3)
+  humidityNeed    Int     @default(3)
+  tempMin         Float?
+  tempMax         Float?
+  soilType        String?
+  growthRate      String?
+  toxicToPets     Boolean @default(false)
+  toxicToHumans   Boolean @default(false)
+
+  wateringFreqDays           Int @default(7)
+  fertilizingFreqDays        Int @default(30)
+  fertilizingOrganicFreqDays Int @default(90)
+  repottingFreqDays          Int @default(365)
+
+  category    PlantCategory?
+  tags        Json           @default("[]")
+  plantNetId  String?
+
+  // Enriched data from Perenual + AI translation
+  descriptionEn   String?
+  plantType       String?
+  cycle           String?
+  careLevel       String?
+  maintenance     String?
+  propagation     Json    @default("[]")
+  pruningMonths   Json    @default("[]")
+  origin          Json    @default("[]")
+  flowerColor     Json    @default("[]")
+  leafColor       Json    @default("[]")
+  droughtTolerant Boolean @default(false)
+  medicinal       Boolean @default(false)
+  perenualId      Int?    @unique
+
+  userPlants      UserPlant[]
+  catalogPhotos   SpeciesPhoto[]
+  wishlistItems   WishlistItem[]
+
+  @@map("plant_species")
+}
+
+model SpeciesPhoto {
+  id        String       @id @default(cuid())
+  speciesId String
+  url       String
+  credit    String?
+  species   PlantSpecies @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+
+  @@map("species_photos")
+}
+
+// ============================================================
+// USER'S PLANTS
+// ============================================================
+
+model UserPlant {
+  id          String    @id @default(cuid())
+  userId      String
+  speciesId   String?
+  customName  String?
+  nickname    String?
+  roomId      String?
+  acquiredAt  DateTime?
+  potSize     Int?
+  notes       String?
+  isArchived  Boolean   @default(false)
+  isFavorite  Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  species       PlantSpecies? @relation(fields: [speciesId], references: [id])
+  room          Room?         @relation(fields: [roomId], references: [id])
+  photos        PlantPhoto[]
+  careTasks     CareTask[]
+  careLogs      CareLog[]
+  growthRecords GrowthRecord[]
+  propagations  Propagation[] @relation("parentPropagations")
+  childOf       Propagation?  @relation("childPropagation")
+
+  @@index([userId])
+  @@map("user_plants")
+}
+
+model PlantPhoto {
+  id        String   @id @default(cuid())
+  plantId   String
+  url       String
+  takenAt   DateTime @default(now())
+  isCover   Boolean  @default(false)
+  isScanner Boolean  @default(false)
+
+  plant UserPlant @relation(fields: [plantId], references: [id], onDelete: Cascade)
+
+  @@index([plantId])
+  @@map("plant_photos")
+}
+
+// ============================================================
+// CARE TASKS & LOGS
+// ============================================================
+
+enum TaskType {
+  WATER
+  SPRAY
+  FERTILIZE            // deprecated, use FERTILIZE_MINERAL
+  FERTILIZE_MINERAL
+  FERTILIZE_ORGANIC
+  REPOT
+  PRUNE
+  CUSTOM
+}
+
+enum PlantCategory {
+  SUCCULENTS
+  FOLIAGE
+  TROPICAL
+  FLOWERING
+  FERNS
+  PALMS
+  CLIMBING
+  LARGE
+}
+
+model CareTask {
+  id            String   @id @default(cuid())
+  plantId       String
+  type          TaskType
+  label         String?
+  frequencyDays Int
+  nextDueAt     DateTime
+  amount        String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  plant     UserPlant      @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  logs      CareLog[]
+  reminders CareReminder[]
+
+  @@index([plantId])
+  @@index([nextDueAt])
+  @@map("care_tasks")
+}
+
+model CareLog {
+  id      String   @id @default(cuid())
+  taskId  String?
+  plantId String
+  type    TaskType
+  doneAt  DateTime @default(now())
+  note    String?
+  amount  String?
+
+  task  CareTask? @relation(fields: [taskId], references: [id])
+  plant UserPlant @relation(fields: [plantId], references: [id], onDelete: Cascade)
+
+  @@index([plantId])
+  @@index([doneAt])
+  @@map("care_logs")
+}
+
+// ============================================================
+// GROWTH TRACKING
+// ============================================================
+
+model GrowthRecord {
+  id         String   @id @default(cuid())
+  plantId    String
+  recordedAt DateTime @default(now())
+  heightCm   Float?
+  diameterCm Float?
+  leafCount  Int?
+  note       String?
+
+  plant UserPlant @relation(fields: [plantId], references: [id], onDelete: Cascade)
+
+  @@index([plantId])
+  @@map("growth_records")
+}
+
+// ============================================================
+// ROOMS & SMART HOME
+// ============================================================
+
+model Room {
+  id              String    @id @default(cuid())
+  userId          String
+  name            String
+  tempC           Float?
+  humidityPct     Float?
+  lightLux        Float?
+  sensorDeviceId  String?
+  sensorUpdatedAt DateTime?
+  updatedAt       DateTime  @updatedAt
+
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plants UserPlant[]
+
+  @@index([userId])
+  @@map("rooms")
+}
+
+model SmartHomeConnection {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  provider     String    @default("yandex")
+  accessToken  String
+  refreshToken String?
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("smart_home_connections")
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+model NotificationPrefs {
+  id               String  @id @default(cuid())
+  userId           String  @unique
+  waterEnabled     Boolean @default(true)
+  fertilizeEnabled Boolean @default(true)
+  repotEnabled     Boolean @default(true)
+  reminderHour     Int     @default(9)
+  reminderTzOffset Int     @default(0)
+  achievementsEnabled   Boolean @default(true)
+  communityEnabled      Boolean @default(true)
+  friendActivityEnabled Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_prefs")
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("push_subscriptions")
+}
+
+model CareReminder {
+  id          String    @id @default(cuid())
+  taskId      String
+  scheduledAt DateTime
+  sentAt      DateTime?
+
+  task CareTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledAt, sentAt])
+  @@map("care_reminders")
+}
+
+// ============================================================
+// PROPAGATION TRACKING
+// ============================================================
+
+enum PropagationMethod {
+  STEM_CUTTING
+  LEAF_CUTTING
+  DIVISION
+  AIR_LAYERING
+  WATER_ROOTING
+  SEEDS
+  OTHER
+}
+
+enum PropagationStatus {
+  STARTED
+  ROOTING
+  ROOTED
+  PLANTED
+  FAILED
+}
+
+model Propagation {
+  id            String             @id @default(cuid())
+  parentPlantId String
+  childPlantId  String?            @unique
+  method        PropagationMethod
+  status        PropagationStatus  @default(STARTED)
+  startedAt     DateTime           @default(now())
+  rootedAt      DateTime?
+  plantedAt     DateTime?
+  note          String?
+  createdAt     DateTime           @default(now())
+
+  parentPlant UserPlant  @relation("parentPropagations", fields: [parentPlantId], references: [id], onDelete: Cascade)
+  childPlant  UserPlant? @relation("childPropagation", fields: [childPlantId], references: [id])
+
+  @@index([parentPlantId])
+  @@map("propagations")
+}
+
+// ============================================================
+// SOCIAL: ACHIEVEMENTS
+// ============================================================
+
+enum AchievementType {
+  // Collection
+  FIRST_PLANT
+  COLLECTOR_5
+  COLLECTOR_10
+  COLLECTOR_25
+  CATEGORY_EXPLORER
+  CATEGORY_MASTER
+  // Care
+  FIRST_CARE
+  CARE_STREAK_7
+  CARE_STREAK_30
+  CARE_STREAK_100
+  CARE_100
+  CARE_500
+  // Growth
+  FIRST_MEASUREMENT
+  GROWTH_TRACKER_10
+  GROWTH_CHAMPION
+  // Propagation
+  FIRST_PROPAGATION
+  PROPAGATION_SUCCESS
+  PROPAGATION_MASTER
+  // Photo
+  FIRST_PHOTO
+  PHOTOGRAPHER_20
+  // Diagnosis
+  FIRST_DIAGNOSIS
+  // Wishlist
+  FIRST_WISHLIST
+  WISHLIST_COLLECTOR_10
+}
+
+model UserAchievement {
+  id         String          @id @default(cuid())
+  userId     String
+  type       AchievementType
+  unlockedAt DateTime        @default(now())
+  notified   Boolean         @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@index([userId])
+  @@map("user_achievements")
+}
+
+// ============================================================
+// SOCIAL: FRIENDS
+// ============================================================
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  BLOCKED
+}
+
+model Friendship {
+  id          String           @id @default(cuid())
+  requesterId String
+  addresseeId String
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+
+  requester User @relation("friendRequestsSent", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("friendRequestsReceived", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId])
+  @@map("friendships")
+}
+
+// ============================================================
+// SOCIAL: WISHLIST
+// ============================================================
+
+enum WishlistPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model WishlistItem {
+  id               String           @id @default(cuid())
+  userId           String
+  speciesId        String?
+  customName       String?
+  note             String?
+  priority         WishlistPriority @default(MEDIUM)
+  price            Float?
+  reservedByUserId String?
+  giftedAt         DateTime?
+  createdAt        DateTime         @default(now())
+
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  species    PlantSpecies? @relation(fields: [speciesId], references: [id])
+  reservedBy User?         @relation("wishlistReservations", fields: [reservedByUserId], references: [id])
+
+  @@unique([userId, speciesId])
+  @@index([userId])
+  @@map("wishlist_items")
+}

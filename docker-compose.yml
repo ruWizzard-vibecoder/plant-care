@@ -1,0 +1,16 @@
+services:
+  plant-postgres:
+    image: postgres:18-alpine
+    container_name: plant-postgres
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5433:5432"
+    environment:
+      POSTGRES_USER: plant
+      POSTGRES_PASSWORD: ${PLANT_DB_PASSWORD:-plant_secret}
+      POSTGRES_DB: plant_care
+    volumes:
+      - plant-pgdata:/var/lib/postgresql/data
+
+volumes:
+  plant-pgdata:

@@ -1,0 +1,27 @@
+{
+  "name": "Plant Care — Уход за растениями",
+  "short_name": "Plant Care",
+  "description": "Умный помощник по уходу за домашними растениями",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1B5E20",
+  "background_color": "#f0faf0",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["lifestyle", "health"]
+}
